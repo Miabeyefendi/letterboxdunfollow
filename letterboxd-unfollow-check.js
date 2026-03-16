@@ -1,7 +1,7 @@
 /**
  * Letterboxd Unfollow - Mutual Check & Mass Unfollow/Block
  * Creator: https://github.com/Miabeyefendi/letterboxdunfollow
- * Version: 2.0.0 (Multi-language, Filters, Unfollow, Block, Follow, Anti-Ban)
+ * Version: 3.0.0 (Multi-language, Filters, Unfollow, Block, Unblock, Follow, Anti-Ban)
  */
 (function () {
     if (!['letterboxd.com','www.letterboxd.com'].includes(window.location.hostname)) {
@@ -36,7 +36,8 @@
             confirmBlock:"Are you sure you want to BLOCK the selected users?\n\nThis action is harder to reverse. Do not close the page.",
             confirmFollow:"Are you sure you want to FOLLOW the selected users?\n\nDo not close the page during the process.",
             processDone:"Process completed!\nSuccessful: ",
-            actionsGroup:"Actions"
+            actionsGroup:"Actions",
+            unblockBtn:"Unblock Selected",confirmUnblock:"Are you sure you want to UNBLOCK the selected users?\n\nDo not close the page during the process.",statSuccessUnblock:"Unblocked"
         },
         tr: {
             appTitle:"Letterboxd Unfollow",appDesc:"Seni takip etmeyenleri takipten çık ve engelle!",
@@ -63,7 +64,8 @@
             confirmBlock:"Seçilen kişileri ENGELLEMEK istediğinize emin misiniz?\n\nBu işlem geri alması daha zordur. Sayfayı kapatmayın.",
             confirmFollow:"Seçilen kişileri TAKİP ETMEK istediğinize emin misiniz?\n\nİşlem sırasında sayfayı kapatmayın.",
             processDone:"İşlem tamamlandı!\nBaşarılı: ",
-            actionsGroup:"İşlemler"
+            actionsGroup:"İşlemler",
+            unblockBtn:"Seçilenlerin Engelini Kaldır",confirmUnblock:"Seçilen kişilerin ENGELİNİ KALDIRMAK istediğinize emin misiniz?\n\nİşlem sırasında sayfayı kapatmayın.",statSuccessUnblock:"Engeli Kaldırılan"
         },
         es: {
             appTitle:"Letterboxd Unfollow",appDesc:"¡Deja de seguir y bloquea a los que no te siguen!",
@@ -89,7 +91,8 @@
             confirmBlock:"¿BLOQUEAR a los seleccionados?\n\nNo cierres la página.",
             confirmFollow:"¿SEGUIR a los seleccionados?\n\nNo cierres la página.",
             processDone:"¡Completado!\nÉxitos: ",
-            actionsGroup:"Acciones"
+            actionsGroup:"Acciones",
+            unblockBtn:"Desbloquear Seleccionados",confirmUnblock:"¿DESBLOQUEAR a los seleccionados?\n\nNo cierres la página.",statSuccessUnblock:"Desbloqueados"
         }
     };
 
@@ -105,7 +108,7 @@
     let currentUsername = detectUsername() || '';
     let followingList=[], followersList=[], blockedList=[], nonFollowers=[], mutuals=[], fansOnly=[], displayedUsers=[];
     let isScanning=false, isProcessing=false, stopRequested=false, selectedUsernames=new Set();
-    let successUnfollowCount=0, successBlockCount=0;
+    let successUnfollowCount=0, successBlockCount=0, successUnblockCount=0;
     const els = {};
 
     // Capture CSRF token BEFORE clearing the page (it lives in the original page's JS)
@@ -333,6 +336,7 @@
     els.statSelectedL=document.createElement('span');
     els.statSuccessUnfollowL=document.createElement('span');
     els.statSuccessBlockL=document.createElement('span');
+    els.statSuccessUnblockL=document.createElement('span');
 
     const vFollowing=mkStatRow(els.statFollowingL,'#40bcf4','👤');
     const vFollowers=mkStatRow(els.statFollowersL,'#40bcf4','👥');
@@ -343,6 +347,7 @@
     const vSelected=mkStatRow(els.statSelectedL,'#22d3ee','☑️');
     const vSuccessUnfollow=mkStatRow(els.statSuccessUnfollowL,'#f97316','🔓');
     const vSuccessBlock=mkStatRow(els.statSuccessBlockL,'#ef4444','🛑');
+    const vSuccessUnblock=mkStatRow(els.statSuccessUnblockL,'#a78bfa','🔑');
     statsPanel.appendChild(statsContent);
 
     // --- Actions Panel ---
@@ -361,6 +366,9 @@
 
     els.followBtn = mkBtn('linear-gradient(135deg,#00e054,#00c94b)','#000',null);
     actionsPanel.appendChild(els.followBtn);
+
+    els.unblockBtn = mkBtn('#27272a','#a78bfa','#a78bfa');
+    actionsPanel.appendChild(els.unblockBtn);
 
     // Stop button - hidden until processing
     els.stopBtn = document.createElement('button');
@@ -456,12 +464,13 @@
         vSelected.textContent=selectedUsernames.size;
         vSuccessUnfollow.textContent=successUnfollowCount;
         vSuccessBlock.textContent=successBlockCount;
+        vSuccessUnblock.textContent=successUnblockCount;
         els.listCount.textContent=`${displayedUsers.length} users`;
 
         if(selectedUsernames.size>0 && !isScanning && !isProcessing) {
-            enableBtn(els.unfollowBtn); enableBtn(els.blockBtn); enableBtn(els.followBtn);
+            enableBtn(els.unfollowBtn); enableBtn(els.blockBtn); enableBtn(els.followBtn); enableBtn(els.unblockBtn);
         } else {
-            disableBtn(els.unfollowBtn); disableBtn(els.blockBtn); disableBtn(els.followBtn);
+            disableBtn(els.unfollowBtn); disableBtn(els.blockBtn); disableBtn(els.followBtn); disableBtn(els.unblockBtn);
         }
     }
 
@@ -482,6 +491,7 @@
         els.statSelectedL.textContent=t('statSelected');
         els.statSuccessUnfollowL.textContent=t('statSuccessUnfollow');
         els.statSuccessBlockL.textContent=t('statSuccessBlock');
+        els.statSuccessUnblockL.textContent=t('statSuccessUnblock');
         els.filtersGroup.textContent=t('filtersGroup'); els.filterLabel.textContent=t('filterLabel');
         els.sortLabel.textContent=t('sortLabel');
         filterSelect.options[0].text=t('fAll'); filterSelect.options[1].text=t('fNonFollowers');
@@ -492,8 +502,8 @@
         els.devLink.textContent=t('devLink'); els.githubText.textContent=t('githubLink');
         els.exportBtn.textContent=t('exportBtn');
         els.actionsGroup.textContent=t('actionsGroup');
-        if(isProcessing) { els.unfollowBtn.textContent=t('processing'); els.blockBtn.textContent=t('processing'); }
-        else { els.unfollowBtn.textContent=t('unfollowBtn'); els.blockBtn.textContent=t('blockBtn'); els.followBtn.textContent=t('followBtn'); }
+        if(isProcessing) { els.unfollowBtn.textContent=t('processing'); els.blockBtn.textContent=t('processing'); els.unblockBtn.textContent=t('processing'); }
+        else { els.unfollowBtn.textContent=t('unfollowBtn'); els.blockBtn.textContent=t('blockBtn'); els.followBtn.textContent=t('followBtn'); els.unblockBtn.textContent=t('unblockBtn'); }
         if(followingList.length===0&&followersList.length===0&&!isScanning) {
             els.emptyState.innerHTML=`<div style="font-size:40px;margin-bottom:16px;">🎬</div><p>${t('emptyList')}</p><br><a href="https://letterboxd.com/miabeyefendi/" target="_blank" style="color:#00e054;text-decoration:none;font-weight:600;">${t('devLink')}</a>`;
         }
@@ -561,6 +571,7 @@
     async function doUnfollow(username) { return doAjaxAction(`/${username}/unfollow/`); }
     async function doFollow(username) { return doAjaxAction(`/${username}/follow/`); }
     async function doBlock(username) { return doAjaxAction(`/${username}/block/`); }
+    async function doUnblock(username) { return doAjaxAction(`/${username}/unblock/`); }
 
     // === BULK ACTION PROCESSOR ===
     async function processBulkAction(actionFn, confirmMsg, successCounter) {
@@ -568,7 +579,7 @@
         if(!confirm(confirmMsg)) return;
 
         isProcessing=true; stopRequested=false;
-        disableBtn(els.unfollowBtn); disableBtn(els.blockBtn); disableBtn(els.followBtn);
+        disableBtn(els.unfollowBtn); disableBtn(els.blockBtn); disableBtn(els.followBtn); disableBtn(els.unblockBtn);
         disableBtn(els.scanBtn); selectAllCheckbox.disabled=true;
         enableBtn(els.stopBtn); els.stopBtn.style.display='block';
         updateTranslations();
@@ -597,11 +608,13 @@
                 success++;
                 if(successCounter==='unfollow') successUnfollowCount++;
                 if(successCounter==='block') successBlockCount++;
+                if(successCounter==='unblock') successUnblockCount++;
                 selectedUsernames.delete(u);
                 followingList=followingList.filter(x=>x!==u);
                 nonFollowers=nonFollowers.filter(x=>x!==u);
                 mutuals=mutuals.filter(x=>x!==u);
                 fansOnly=fansOnly.filter(x=>x!==u);
+                blockedList=blockedList.filter(x=>x!==u);
             } else {
                 console.warn(`Failed action on ${u}`);
             }
@@ -735,7 +748,7 @@
         els.scanBtn.style.opacity='0.7'; els.scanBtn.style.cursor='not-allowed';
         updateTranslations();
         followingList=[];followersList=[];blockedList=[];nonFollowers=[];mutuals=[];fansOnly=[];displayedUsers=[];
-        selectedUsernames.clear();successUnfollowCount=0;successBlockCount=0;updateStats();
+        selectedUsernames.clear();successUnfollowCount=0;successBlockCount=0;successUnblockCount=0;updateStats();
         progressContainer.style.display='block';progressBar.style.width='0%';
         progressBar.style.background='linear-gradient(90deg,#00e054,#40bcf4)';
         listContainer.innerHTML='';
@@ -776,6 +789,7 @@
     els.unfollowBtn.addEventListener('click',()=>processBulkAction(doUnfollow,t('confirmUnfollow'),'unfollow'));
     els.blockBtn.addEventListener('click',()=>processBulkAction(doBlock,t('confirmBlock'),'block'));
     els.followBtn.addEventListener('click',()=>processBulkAction(doFollow,t('confirmFollow'),'follow'));
+    els.unblockBtn.addEventListener('click',()=>processBulkAction(doUnblock,t('confirmUnblock'),'unblock'));
 
     // Initial render
     listContainer.appendChild(els.emptyState);
